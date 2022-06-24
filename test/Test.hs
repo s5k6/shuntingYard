@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
+
 module Main where
 
 
@@ -14,21 +16,36 @@ import Test.QuickCheck
 
 
 
-type Op = (Assoc, Int)
-
 instance Show Assoc where
   showsPrec _ L = showChar 'L'
   showsPrec _ N = showChar 'N'
   showsPrec _ R = showChar 'R'
 
+instance Eq Assoc where
+  L == L = True
+  R == R = True
+  N == N = True
+  _ == _ = False
+
+
+
+type Op = (Assoc, Int)
+
 data Expr = Val | Tie Op Expr Expr
   deriving Eq
+
+
+instance Operator Op Expr where
+  prec = snd
+  assoc = fst
+  apply = Tie
 
 
 instance Show Expr where
   showsPrec _ Val = showString "_"
   showsPrec q (Tie (a, p) l r) =
-    showParen (q > 0) $ showsPrec 1 l . showChar ' ' . shows a . shows p . showChar ' ' . showsPrec 1 r
+    showParen (q > 0) $ showsPrec 1 l . showChar ' ' . shows p . shows a
+    . showChar ' ' . showsPrec 1 r
 
 
 
@@ -89,7 +106,7 @@ serialize (Tie o l r) = (le, los ++ ((o, re) : ros))
 
 prop :: Expr -> Bool
 
-prop expr = case shuntingYard fst snd Tie e os of
+prop expr = case shuntingYard e os of
               Right r -> r == expr
               Left (o1, o2) -> error $ show o1 ++ "/" ++ show o2
   where
@@ -99,8 +116,8 @@ prop expr = case shuntingYard fst snd Tie e os of
 main :: IO ()
 
 main = do
-  -- result <- quickCheckResult . verbose . withMaxSuccess 10 $ prop
-  result <- quickCheckResult . withMaxSuccess 100000 $ prop
+  result <- quickCheckResult . verbose . withMaxSuccess 10 $ prop
+  --result <- quickCheckResult . withMaxSuccess 100000 $ prop
   unless (isSuccess result) exitFailure
 
 
