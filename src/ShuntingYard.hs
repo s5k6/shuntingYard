@@ -35,14 +35,14 @@ These are all good choices, also implemented by Haskell. -}
 
 
 {- The implementation abstracts from the type `op` of operators and the
-type `expr` of of expressions.  But it needs to get information from
-the operators, and also relates the two types to each other for
+type `ex` of of expressions.  But it needs to get information from the
+operators, and also relates the two types to each other for
 application. -}
 
-class Operator op expr | op -> expr where
+class Operator op ex | op -> ex where
   prec :: op -> Int
   assoc :: op -> Assoc
-  apply :: op -> expr -> expr -> expr
+  apply :: op -> ex -> ex -> ex
 
 -- FIXME: learn how to do this with type families?
 
@@ -52,8 +52,7 @@ class Operator op expr | op -> expr where
 with operators.  Note that we do not handle parenthesis, they cannot
 occur in the use case I'm interested in. -}
 
-shuntingYard
-  :: Operator op expr => expr -> [(op, expr)] -> Either (op, op) expr
+shuntingYard :: Operator op ex => ex -> [(op, ex)] -> Either (op, op) ex
 
 shuntingYard = go []
   where
@@ -94,8 +93,8 @@ say, the first two operators went on the stack, it would be
 
 see what I've done there?  I've shifted the pairing!  This becomes
 more clear when one reads the stack backwards (indicated below by
-streaky brackets ⟦·⟧ in an abuse of notation).  The call to the `go`
-function with this stack would represent the situation
+Strachey/Scott brackets ⟦·⟧ in an abuse of notation).  The call to the
+`go` function with this stack would represent the situation
 
     go  ⟦ (e0, o1), (e1, o2) ⟧  e2  [ (o3, e3), (o4, e4), … ]
 
