@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, TypeFamilies #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Main where
 
@@ -16,6 +16,8 @@ import Test.QuickCheck
 
 
 
+{- Generating arbitrary associativity. -}
+
 instance Show Assoc where
   showsPrec _ L = showChar 'L'
   showsPrec _ N = showChar 'N'
@@ -27,39 +29,35 @@ instance Eq Assoc where
   N == N = True
   _ == _ = False
 
+instance Arbitrary Assoc where
+  arbitrary = elements [L, N, R]
 
 
-data Op = Op Assoc Int
-  deriving Eq
+
+{- The operators have no functionality, only precedence and
+associativity.  The expressions sport a leaf value, and an inner
+binary node annotated with an operator.  We will generate random
+expressions, and verify whether reconstruction succeeds. -}
+
+type Op = (Assoc, Int)
 
 data Expr = Val | Tie Op Expr Expr
   deriving Eq
 
 instance Show Expr where
   showsPrec _ Val = id
-  showsPrec q (Tie (Op a p) l r) =
+  showsPrec q (Tie (a, p) l r) =
     showParen (q > 0) $ showsPrec 1 l . showChar ' ' . shows p . shows a
     . showChar ' ' . showsPrec 1 r
 
 
 
-instance Operator Op where
-  type Expression Op = Expr
-  prec (Op _ p) = p
-  assoc (Op a _) = a
-  apply = Tie
-
-
-
-instance Arbitrary Assoc where
-  arbitrary = elements [L, N, R]
-
-
-{- Thefirst argument specifies whether the constructed expression should
-be reconstructable by the shunting yardalgorithm.  `Just True`
-generates a valid erpression, `Just False` generates an invalid
-expression, and `Nothing` implies random choice between the two.
-Note, that an invalid expression implies size of at least three. -}
+{- Generator for expressions.  The first argument specifies whether the
+generated expression should be reconstructable by the Shunting Yard
+algorithm.  `Just True` generates a valid erpression, `Just False`
+generates an invalid expression, and `Nothing` implies random choice
+between the two.  Note, that an invalid expression implies size of at
+least three. -}
 
 mkExpr :: Maybe Bool -> (Assoc, Int) -> Int -> Gen Expr
 
@@ -69,7 +67,7 @@ mkExpr good (a, p) size = do
   split <- choose (1, size - 1)
   left <- mkSub L split
   right <- mkSub R (size - split)
-  pure $ Tie (Op a p) left right
+  pure $ Tie (a, p) left right
 
   where
     mkSub dir s = case good of
@@ -93,6 +91,8 @@ mkExpr good (a, p) size = do
 
 
 
+{- Different types for good and bad expressions. -}
+
 newtype GoodExpr = GoodExpr { unGoodExpr :: Expr }
 
 instance Show GoodExpr where show = show . unGoodExpr
@@ -115,6 +115,8 @@ instance Arbitrary BadExpr where
 
 
 
+{- The inverse of `shuntingYard` -}
+
 serialize :: Expr -> (Expr, [(Op, Expr)])
 
 serialize Val = (Val, [])
@@ -126,17 +128,23 @@ serialize (Tie o l r) = (le, los ++ ((o, re) : ros))
 
 
 
+{- Property: Reconstructable expressions are recunstructed correctly. -}
+
 prop_good :: GoodExpr -> Bool
 
-prop_good (GoodExpr expr) = either (const False) (== expr) $ shuntingYard e os
+prop_good (GoodExpr expr) =
+  either (const False) (== expr) $ shuntingYard snd fst Tie e os
   where
     (e, os) = serialize expr
 
 
 
+{- Property: Invalid expressions yield an error. -}
+
 prop_bad :: BadExpr -> Bool
 
-prop_bad (BadExpr expr) = either (const True) (const False) $ shuntingYard e os
+prop_bad (BadExpr expr) =
+  either (const True) (const False) $ shuntingYard snd fst Tie e os
   where
     (e, os) = serialize expr
 
@@ -161,20 +169,3 @@ main = do
   where
     parseArgs as
       = null as ? stdArgs $ stdArgs{ maxSuccess = read $ head as }
-
-
-{-
-
-
-main :: IO ()
-
-main = do
-  result <- quickCheckResult . verbose . withMaxSuccess 10 $ prop_good
-  --result <- quickCheckResult . withMaxSuccess 100000 $ prop_good
-  unless (isSuccess result) exitFailure
-
-  result2 <- quickCheckResult . verbose . withMaxSuccess 10 $ prop_bad
-  --result2 <- quickCheckResult . withMaxSuccess 100000 $ prop_bad
-  unless (isSuccess result2) exitFailure
-
--}

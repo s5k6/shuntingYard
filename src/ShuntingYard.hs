@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeFamilies #-}
-
 
 {- An implementation of Edsger Dijkstra's ‘Shunting yard algorithm’ [1].
 
@@ -8,13 +6,16 @@ stack, which makes the compiler prove that there is always the same
 amount of items on both of them (at a carefully chosen point in time
 of execution). -}
 
-module ShuntingYard where
+module ShuntingYard ( Assoc(L, R, N), shuntingYard ) where
+
 
 
 {- All operators are binary, have an integer precedence and *may*
-associate to the left (L) or right (R), or not at all (N). -}
+associate to the left (L), the right (R), or not at all (N). -}
 
 data Assoc = L | N | R
+
+
 
 {- Conflict resolution is first by precedence, highest first
 
@@ -24,41 +25,40 @@ data Assoc = L | N | R
 then by associativity
 
     2 / 2 / 3  →  (2 / 2) / 3
-    2 ^ 2 ^ 3  →  2 ^ (2 ^ 3)
+    2 ^ 2 ^ 3  →  2 ^ (2 ^ 3)  .
 
-and non-associative operatores with same precedence will yield an
-error
+Conflicts between operators with the same precedence and different
+associativity yield an error, as do non-associative operators:
 
-    1 < 3 > 2    -- is this comparing a boolean with an integer?
+    1 < 3 > 2  →  ☠  -- is this comparing a boolean with an integer?
 
-These are all good choices, also implemented by Haskell. -}
+These are all good choices, also implemented by languages like
+Haskell. -}
+
 
 
 {- The implementation abstracts from the type `op` of operators and the
-type `ex` of of expressions.  But it needs to get information from the
-operators, and also relates the two types to each other for
-application.
+type `ex` of of expressions.  The first three arguments to
+`shuntingYard` provide precedence and associativity of an operator,
+and a means to construct a new expression by applying an operator to
+two subexpressions.
 
-For type families, read [2], from where you'll also find [3] and [4]. -}
-
-class Operator op where
-  type Expression op
-  prec :: op -> Int
-  assoc :: op -> Assoc
-  apply :: op -> Expression op -> Expression op -> Expression op
-
-
-{-The input type guarantees a sequence of operands correctly interleaved
-with operators.  Note that we do not handle parenthesis, they cannot
-occur in the use case I'm interested in. -}
+The input sequence is provided as the head expression and a possibly
+empty list of pairs of followup operators and expressions, thus
+guaranteeing correct interleaving. -}
 
 shuntingYard
-  :: Operator op
-  => Expression op -> [(op, Expression op)] -> Either (op, op) (Expression op)
+  :: (op -> Int)             -- precedence of an operator
+  -> (op -> Assoc)           -- associativity of an operator
+  -> (op -> ex -> ex -> ex)  -- construct expression
+  -> ex                      -- head expression of input stream
+  -> [(op, ex)]              -- followup operators and expressions
+  -> Either (op, op) ex      -- conflicting operators or expression root
 
-shuntingYard = go []
+shuntingYard prec assoc apply = go []
   where
 
+    -- decide where `e1` belongs to, detailed description below
     go stack@((e0, o1) : stackRest) e1 input@((o2, e2) : inputRest) =
       case compare (prec o1) (prec o2) of
         GT -> bind
@@ -83,7 +83,7 @@ expressions `e…`, interspersed with operators `o…`, enumerated such:
 
     e0 o1 e1 o2 e2 o3 e3 o4 e4 …    -- note: no operator `o0`!
 
-The parser feeds this on the Shunting Yard as the first expression,
+The parser feeds this on the Shunting yard as the first expression,
 and a list of pairs:
 
     e0, [(o1, e1), (o2, e2), (o3, e3), (o4, e4), …
@@ -96,18 +96,18 @@ say, the first two operators went on the stack, it would be
 see what I've done there?  I've shifted the pairing!  This becomes
 more clear when one reads the stack backwards (indicated below by
 Strachey/Scott brackets ⟦·⟧ in an abuse of notation).  The call to the
-`go` function with this stack would represent the situation
+`go` function
 
     go  ⟦ (e0, o1), (e1, o2) ⟧  e2  [ (o3, e3), (o4, e4), … ]
 
-which encodes “having moved into” the input sequence, up to e2, and
-now weighing operator o2 against o3.  Who will win over e2's heart?
-Will e2 bind to o2 and beget a new expression?  Or will it elope with
-o3 onto the stack, making e3 the next scrutinee?  Will there be
+encodes “having moved into” the input sequence, up to e2, and now
+weighing operator o2 against o3.  Who will win over e2's heart?  Will
+e2 bind to o2 and beget a new expression?  Or will it elope with o3
+onto the stack, making e3 the next scrutinee?  Will there be
 unresolvable conflict?  See in the next season of getting carried away
 with unreasonable pun…
 
-Expressions and operators are stored on a stack only if it is empty
+Expressions and operators are stored on the stack only if it is empty
 (`go`'s second case), or if its top operator looses against the next
 operator on the input.  It is thus strictly ordered with respect to
 conflict resolution, which is exploited in `go`'s last case when the
@@ -117,7 +117,4 @@ input is all consumed. -}
 
 {-
 [1]: https://en.wikipedia.org/wiki/Shunting_yard_algorithm
-[2]: https://wiki.haskell.org/GHC/Type_families
-[3]: https://wiki.haskell.org/Simonpj/Talk:FunWithTypeFuns
-[4]: http://research.microsoft.com/~simonpj/papers/assoc-types/fun-with-type-funs/typefun.pdf
 -}
