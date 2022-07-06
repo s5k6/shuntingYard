@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies #-}
+{-# LANGUAGE TypeFamilies #-}
 
 
 {- An implementation of Edsger Dijkstra's ‘Shunting yard algorithm’ [1].
@@ -37,22 +37,24 @@ These are all good choices, also implemented by Haskell. -}
 {- The implementation abstracts from the type `op` of operators and the
 type `ex` of of expressions.  But it needs to get information from the
 operators, and also relates the two types to each other for
-application. -}
+application.
 
-class Operator op ex | op -> ex where
+For type families, read [2], from where you'll also find [3] and [4]. -}
+
+class Operator op where
+  type Expression op
   prec :: op -> Int
   assoc :: op -> Assoc
-  apply :: op -> ex -> ex -> ex
-
--- FIXME: learn how to do this with type families?
-
+  apply :: op -> Expression op -> Expression op -> Expression op
 
 
 {-The input type guarantees a sequence of operands correctly interleaved
 with operators.  Note that we do not handle parenthesis, they cannot
 occur in the use case I'm interested in. -}
 
-shuntingYard :: Operator op ex => ex -> [(op, ex)] -> Either (op, op) ex
+shuntingYard
+  :: Operator op
+  => Expression op -> [(op, Expression op)] -> Either (op, op) (Expression op)
 
 shuntingYard = go []
   where
@@ -64,7 +66,7 @@ shuntingYard = go []
         EQ -> case (assoc o1, assoc o2) of
                 (L, L) -> bind
                 (R, R) -> push
-                otherwise -> Left (o1, o2)
+                _ -> Left (o1, o2)
       where
         bind = go stackRest (apply o1 e0 e1) input
         push = go ((e1, o2) : stack) e2 inputRest
@@ -115,4 +117,7 @@ input is all consumed. -}
 
 {-
 [1]: https://en.wikipedia.org/wiki/Shunting_yard_algorithm
+[2]: https://wiki.haskell.org/GHC/Type_families
+[3]: https://wiki.haskell.org/Simonpj/Talk:FunWithTypeFuns
+[4]: http://research.microsoft.com/~simonpj/papers/assoc-types/fun-with-type-funs/typefun.pdf
 -}

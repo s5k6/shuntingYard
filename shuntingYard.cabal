@@ -16,9 +16,20 @@ license: GPL-3.0-or-later
 
 extra-source-files:  README.md
 
+
 common shared-properties
   default-language:    Haskell2010
   default-extensions:  BangPatterns
+  ghc-options:         -Wall
+                       -Werror
+                       -Wwarn=missing-local-signatures
+                       -Wwarn=missing-export-lists
+                       -Wwarn=unused-top-binds
+                       -Wwarn=deprecations
+                       -Werror=unused-imports
+                       -Wno-orphans
+                       -Wwarn=name-shadowing
+
 
 library
   import:              shared-properties
@@ -27,6 +38,7 @@ library
   exposed-modules: ShuntingYard
 
   build-depends:       base
+
 
 test-suite test
   import:              shared-properties
