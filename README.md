@@ -1,25 +1,111 @@
 
-An implementation of [Edsger Dijkstra's ‘Shunting yard algorithm’][1].
+Haskell *Shunting yard algorithm*
+=================================
 
-An improvement is the fusing of the operator stack with the operand
-stack, which makes the compiler prove that there is always the same
-amount of items on both of them (at a carefully chosen point in time
-of execution).
+An implementation of [Edsger Dijkstra's *Shunting yard algorithm*][1],
+which reconstructs an abstract syntax tree from a suitable expression
+given in infix notation.
 
-The input type guarantees a sequence of operands correctly interleaved
-with operators.  Note that this implementation does not handle
-parenthesis, they cannot occur in the use case I'm interested in: My
-grammars tend to have the form
+An advantage of using this algorithm, over fixity resolution in the
+parser's grammar, is the increased flexibility.  Operators may be
+added or removed without much changing the grammar, and fixity may
+even be changed at runtime.  Also, the resulting grammar will be much
+simpler.
 
-    Expression ::= Blah (Operator Blah)*
+An improvement of this implementation is the use of a single stack,
+which yields more compile time guarantees and cleaner code.  This is a
+consequence of choosing a rather narrow input type, which guarantees
+correctly interleaved operands and operators.
 
-    Operator ::= `+` | `-` | `*` | …
+Each operator is associated with a precedence (typically a natural
+number), and an associativity (left, right, or none), together
+occasionally referred to as “fixity”.  The next examples use
+conventional fixities.  Conflict resolution is first by operator
+precedence, highest first
 
-    Blah ::= `(` Expression  (`,` Expression)* `)`
-          | …
+    1 / 2 + 3  →  (1 / 2) + 3
+    1 + 2 * 3  →  1 + (2 * 3)
 
-where the parenthesis have already been taken care of.  I'm using the
-Shunting yard algorithm to resolve the parser's output for the first
-rule in above grammar.
+and only then by operator associativity
+
+    2 / 2 / 3  →  (2 / 2) / 3
+    2 ^ 2 ^ 3  →  2 ^ (2 ^ 3)  .
+
+Conflicts between operators with the same precedence but different
+associativity yield an error, as do non-associative operators:
+
+    1 < 3 > 2  →  ☠
+
+Is this comparing a boolean with an integer?
+
+These are all good choices, also implemented by languages like
+Haskell.
+
+Note that this implementation does not handle parenthesis, they cannot
+occur in the use cases I'm interested in: My grammars tend to have a
+form where the parenthesis have already been taken care of when
+looking at infix operators.
+
+
+A bad idea
+----------
+
+The presence of a single non-associative operator yields an error,
+unless resolved by precedence.  One might be tempted to allow mixing
+of non-associative with associative operators, by letting the
+associative operator also set the associativity of the other one.
+
+Examples (using `<`, `~`, `>` for operators with respectively left,
+none, and right associativity, all at the same precedence level):
+
+    x < y ~ z  →  (x < y) ~ z
+    x > y ~ z  →  x > (y ~ z)
+    x ~ y < z  →  (x ~ y) < z
+    x ~ y > z  →  x ~ (y > z)
+
+This, however, breaks down when an associative operator appears
+between two non-associative operators:
+
+    w ~ x < y ~ z    or    w ~ x > y ~ z
+
+Depending on the algorithm's processing order (we go left to right),
+one of them (here: the former) will parse just fine
+
+    w ~ x < y ~ z  →  (w ~ x) < y ~ z  →  ((w ~ x) < y) ~ z
+
+while the other (here: the latter) will yield a conflict
+
+    w ~ x > y ~ z  →  w ~ (x > y) ~ z  →  ☠
+
+although a valid interpretation
+
+    w ~ x > y ~ z  →  w ~ x > (y ~ z)  →  w ~ (x > (y ~ z))
+
+exists.  I think the output of the algorithm should be agnostic on the
+order in which it digests input (this is actually verified in the unit
+tests).
+
+Also, I doubt that squeezing semantics out of every possible syntactic
+form necessarily increases readability of a language.  Lifting the
+concept of Hamming Distance to PL syntax says otherwise.
+
+
+Higher arity operators
+----------------------
+
+A language designer may choose to allow forms like
+
+    a < b < c < d
+
+and interpret them as one of
+
+    (a < b) & (b < c) & (c < d)
+    all [a < b, b < c, c < d]
+    ordered [a, b, c, d]
+
+I would consider this a differnt syntactic form, and call it a an
+n-ary operator, or an operator on lists (which only collapses into our
+case if the number of operands is two).  This is not handled here.
+
 
 [1]: https://en.wikipedia.org/wiki/Shunting_yard_algorithm

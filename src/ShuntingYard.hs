@@ -17,26 +17,6 @@ data Assoc = L | N | R
 
 
 
-{- Conflict resolution is first by precedence, highest first
-
-    1 / 2 + 3  →  (1 / 2) + 3
-    1 + 2 * 3  →  1 + (2 * 3)
-
-then by associativity
-
-    2 / 2 / 3  →  (2 / 2) / 3
-    2 ^ 2 ^ 3  →  2 ^ (2 ^ 3)  .
-
-Conflicts between operators with the same precedence and different
-associativity yield an error, as do non-associative operators:
-
-    1 < 3 > 2  →  ☠  -- is this comparing a boolean with an integer?
-
-These are all good choices, also implemented by languages like
-Haskell. -}
-
-
-
 {- The implementation abstracts from the type `op` of operators and the
 type `ex` of of expressions.  The first three arguments to
 `shuntingYard` provide precedence and associativity of an operator,
@@ -48,7 +28,8 @@ empty list of pairs of followup operators and expressions, thus
 guaranteeing correct interleaving. -}
 
 shuntingYard
-  :: (op -> Int)             -- precedence of an operator
+  :: Ord precedence          -- ordering on precedence level
+  => (op -> precedence)      -- precedence of an operator
   -> (op -> Assoc)           -- associativity of an operator
   -> (op -> ex -> ex -> ex)  -- construct expression
   -> ex                      -- head expression of input stream

@@ -45,7 +45,7 @@ data Expr = Val | Tie Op Expr Expr
   deriving Eq
 
 instance Show Expr where
-  showsPrec _ Val = id
+  showsPrec _ Val = showChar '_'
   showsPrec q (Tie (a, p) l r) =
     showParen (q > 0) $ showsPrec 1 l . showChar ' ' . shows p . shows a
     . showChar ' ' . showsPrec 1 r
@@ -102,8 +102,6 @@ instance Arbitrary GoodExpr where
     a <- arbitrary
     GoodExpr <$> mkExpr (Just True) (a, 0) (size + 1)
 
-
-
 newtype BadExpr = BadExpr { unBadExpr :: Expr }
 
 instance Show BadExpr where show = show . unBadExpr
@@ -133,9 +131,9 @@ serialize (Tie o l r) = (le, los ++ ((o, re) : ros))
 prop_good :: GoodExpr -> Bool
 
 prop_good (GoodExpr expr) =
-  either (const False) (== expr) $ shuntingYard snd fst Tie e os
-  where
-    (e, os) = serialize expr
+  case uncurry (shuntingYard snd fst Tie) $ serialize expr of
+    Left _ -> False
+    Right e -> e == expr
 
 
 
@@ -144,9 +142,76 @@ prop_good (GoodExpr expr) =
 prop_bad :: BadExpr -> Bool
 
 prop_bad (BadExpr expr) =
-  either (const True) (const False) $ shuntingYard snd fst Tie e os
+  either (const True) (const False) . uncurry (shuntingYard snd fst Tie)
+  $
+  serialize expr
+
+
+
+{- Reverse input stream and direction of associativities -}
+
+flipStream :: Expr -> [(Op, Expr)] -> (Expr, [(Op, Expr)])
+
+flipStream = go []
   where
-    (e, os) = serialize expr
+    go stack e0 ((o1, e1) : rest) = go ((o1', e0) : stack) e1 rest
+      where
+        o1' = case o1 of
+          (L, p) -> (R, p)
+          (R, p) -> (L, p)
+          other -> other
+
+    go stack e0 [] = (e0, stack)
+
+
+{- Property: Flipping a stream twice is the identity -}
+
+newtype Stream = Stream { unStream :: (Expr, [(Op, Expr)]) }
+  deriving Show
+
+instance Arbitrary Stream where
+  arbitrary = Stream . (,) Val . map (flip (,) Val) <$> arbitrary
+
+prop_flipFlipStream :: Stream -> Bool
+
+prop_flipFlipStream (Stream ss) =
+  uncurry flipStream (uncurry flipStream ss) == ss
+
+
+
+{- Reverse expression and direction of associativities -}
+
+flipExpr :: Expr -> Expr
+
+flipExpr Val = Val
+
+flipExpr (Tie o e1 e2) = Tie o' (flipExpr e2) (flipExpr e1)
+  where
+    o' = case o of
+      (L, p) -> (R, p)
+      (R, p) -> (L, p)
+      other -> other
+
+
+{- Property: Flipping an expression twice is the identity -}
+
+prop_flipFlipExpr :: GoodExpr -> Bool
+
+prop_flipFlipExpr (GoodExpr expr) =
+  flipExpr (flipExpr expr) == expr
+
+
+
+{- Property: Flipping commutes with reconstruction. -}
+
+prop_direction :: GoodExpr -> Bool
+
+prop_direction (GoodExpr expr) =
+  case uncurry (shuntingYard snd fst Tie) str of
+    Left _ -> False
+    Right e -> e == flipExpr expr
+  where
+    str = uncurry flipStream $ serialize expr
 
 
 
