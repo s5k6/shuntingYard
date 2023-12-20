@@ -142,9 +142,9 @@ prop_good (GoodExpr expr) =
 prop_bad :: BadExpr -> Bool
 
 prop_bad (BadExpr expr) =
-  either (const True) (const False) . uncurry (shuntingYard snd fst Tie)
-  $
-  serialize expr
+  case uncurry (shuntingYard snd fst Tie) $ serialize expr of
+    Left (!_, !_) -> True
+    _ -> False
 
 
 
