@@ -12,9 +12,13 @@ added or removed without much changing the grammar, and fixity may
 even be changed at runtime.  Also, the resulting grammar will be much
 simpler.
 
-An improvement of this implementation is the use of a single stack,
-which yields more compile time guarantees and cleaner code.  This is a
-consequence of choosing a rather narrow input type, which guarantees
+A demonstration of this is in `https://github.com/s5k6/sycalc`.
+
+This implementation improves on the [traditional presentation][1] by
+using a single stack instead of two.  This yields more compile time
+guarantees and thus cleaner code, since code for “impossible cases”
+(invalid population of the two stacks) can be simply omitted.  This is
+a consequence of choosing a rather narrow input type, which guarantees
 correctly interleaved operands and operators.
 
 Each operator is associated with a precedence (typically a natural
