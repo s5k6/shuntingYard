@@ -21,6 +21,13 @@ common shared-properties
   default-language:    Haskell2010
   default-extensions:  BangPatterns
                      , LambdaCase
+
+  mixins:              base hiding ( Control.Concurrent, Control.Exception
+                                   , Control.Concurrent.STM )
+
+common devel-properties
+  import: shared-properties
+
   ghc-options:         -Wall
                        -Werror
                        -Wwarn=missing-local-signatures
@@ -31,12 +38,25 @@ common shared-properties
                        -Wno-orphans
                        -Wwarn=name-shadowing
 
-  mixins:              base hiding ( Control.Concurrent, Control.Exception
-                                   , Control.Concurrent.STM )
+common production-properties
+  import: shared-properties
+
+  ghc-options:         -Wall
+                       -Wwarn=missing-local-signatures
+                       -Wwarn=missing-export-lists
+                       -Wwarn=unused-top-binds
+                       -Wwarn=deprecations
+                       -Werror=unused-imports
+                       -Wno-orphans
+                       -Wwarn=name-shadowing
+
+common chosen-properties
+  import: production-properties
+
 
 
 library
-  import:              shared-properties
+  import:              chosen-properties
   hs-source-dirs:      src
 
   exposed-modules: ShuntingYard
@@ -45,7 +65,7 @@ library
 
 
 test-suite test
-  import:              shared-properties
+  import:              chosen-properties
   type:                exitcode-stdio-1.0
 
   hs-source-dirs:      test
