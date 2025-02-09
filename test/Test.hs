@@ -232,5 +232,6 @@ main = do
   s <- $(forAllProperties) $ quickCheckWithResult args
   s ? return () $ exitFailure
   where
-    parseArgs as
-      = null as ? stdArgs $ stdArgs{ maxSuccess = read $ head as }
+    parseArgs = \case
+      [] -> stdArgs
+      (a:_) -> stdArgs{ maxSuccess = read a }
