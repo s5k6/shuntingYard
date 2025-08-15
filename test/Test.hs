@@ -9,7 +9,7 @@ import ShuntingYard
 import System.Exit ( exitFailure )
 import System.Environment ( getArgs )
 import Test.QuickCheck
-  (  Gen, Arbitrary
+  ( Gen, Arbitrary
   , arbitrary, sized, elements, choose, oneof
   , forAllProperties, quickCheckWithResult, stdArgs, maxSuccess
   )
