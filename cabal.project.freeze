@@ -17,4 +17,4 @@ constraints: any.QuickCheck ==2.16.0.0,
              splitmix -optimised-mixer,
              any.template-haskell ==2.20.0.0,
              any.transformers ==0.6.1.0
-index-state: hackage.haskell.org 2025-08-02T19:59:02Z
+index-state: hackage.haskell.org 2025-10-06T17:36:10Z

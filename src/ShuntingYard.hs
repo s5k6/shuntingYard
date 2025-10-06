@@ -8,6 +8,8 @@ of execution). -}
 
 module ShuntingYard ( Assoc(L, R, N), shuntingYard ) where
 
+import Data.List ( foldl' )
+
 
 
 {- All operators are binary, have an integer precedence and *may*
@@ -56,7 +58,7 @@ shuntingYard prec assoc apply = go []
     go [] e0 ((o1, e1) : inputRest) = go [(e0, o1)] e1 inputRest
 
     -- input empty, and stack is strictly ordered!
-    go stack e [] = Right $ foldl (\e1 (e0, o1) -> apply o1 e0 e1) e stack
+    go stack e [] = Right $ foldl' (\e1 (e0, o1) -> apply o1 e0 e1) e stack
 
 
 {- Variable naming convention: Assume the input to be a sequence of
